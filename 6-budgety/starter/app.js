@@ -15,6 +15,15 @@ var budgetController = (function() {
         this.value = value;
     };
 
+    var calcuateTotal = function(type) {
+        var sum = 0;
+        data.allItems[type].forEach(function(cur) {
+            sum += cur.value;
+        });
+
+        data.totals[type] = sum;
+    };
+
     var data = {
         allItems: {
             exp: [],
@@ -23,7 +32,9 @@ var budgetController = (function() {
         totals: {
             exp: 0,
             inc: 0
-        }
+        },
+        budget: 0,
+        percentage: -1
     };
 
     return {
@@ -51,6 +62,31 @@ var budgetController = (function() {
             //data.totals[type] += val;
         },
 
+        calculateBudget: function() {
+            //calcuate total income and expenses
+            calcuateTotal('exp');
+            calcuateTotal('inc');
+            
+            //calculate total budget - income - expenses
+            data.budget = data.totals.inc - data.totals.exp;
+
+            //calculate % of income we've spent
+            if (data.totals.inc > 0) {
+                data.percentage = Math.round((data.totals.exp / data.totals.inc) * 100);
+            } else {
+                data.percentage = -1;
+            }
+        },
+
+        getBudget: function() {
+          return {
+              budget: data.budget,
+              totalInc: data.totals.inc,
+              totalExp: data.totals.exp,
+              percentage: data.percentage
+          };
+        },
+
         testing: function() {
             console.log(data);
         }
@@ -75,7 +111,7 @@ var UIController = (function() {
                 type: document.querySelector(DOMstrings.inputType).value, // will be either inc or exp
                 description: document.querySelector(DOMstrings.inputDescription)
                     .value,
-                value: document.querySelector(DOMstrings.inputValue).value
+                value: parseFloat(document.querySelector(DOMstrings.inputValue).value)
             };
         },
 
@@ -101,7 +137,21 @@ var UIController = (function() {
 
             // insert into DOM
             document.querySelector(element).insertAdjacentHTML('beforeend', newHtml);
+        },
 
+        clearFields: function() {
+            var fields, fieldsArray;
+
+            fields = document.querySelectorAll(DOMstrings.inputDescription + ', ' + DOMstrings.inputValue);
+
+            fieldsArray = Array.prototype.slice.call(fields);
+
+            fieldsArray.forEach(function(current, index, array) {
+                current.value = "";
+            });
+
+            fieldsArray[0].focus();
+            
         },
 
         getDOMstrings: function() {
@@ -127,26 +177,45 @@ var controller = (function(budgetCtrl, UICtrl) {
         });
     };
 
+
+    var updateBudget = function() {
+        //1. calculate budget
+        budgetController.calculateBudget();
+        
+        //2. return the budget
+        var budget = budgetController.getBudget();
+
+        //3. display budget on the UI
+        console.log(budget);
+
+    };
+
     var ctrlAddItem = function() {
         var input, newItem;
 
         //1. Get the filled input data
         input = UICtrl.getInput();
 
+        if (input.description !== "" && !isNaN(input.value) && input.value > 0){
+            //2. add item to the budget controller
+            newItem = budgetCtrl.addItem(
+                input.type,
+                input.description,
+                input.value
+            );
+
+            //3. add the item to the UI
+            UICtrl.addListItem(newItem, input.type);
+
+            //4. clear fields.
+            UICtrl.clearFields();
+
+            //5. calculate and update budgets
+            updateBudget();
+        }
         // console.log(input);
 
-        //2. add item to the budget controller
-        newItem = budgetCtrl.addItem(
-            input.type,
-            input.description,
-            input.value
-        );
 
-        //3. add the item to the UI
-        UICtrl.addListItem(newItem, input.type);
-        //4. calculate budget
-
-        //5. display budget on the UI
 
         // console.log('it works');
     };
